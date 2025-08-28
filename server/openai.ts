@@ -1,14 +1,24 @@
 import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
-});
+const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 export async function generateAIResponse(
   userMessage: string,
   personalityScores?: Record<string, number> | null
 ): Promise<string> {
+  // Fallback response if OpenAI is not available
+  if (!openai) {
+    let personalityResponse = "";
+    if (personalityScores && Object.keys(personalityScores).length > 0) {
+      personalityResponse = `\n\nBased on your personality profile, I can see some interesting patterns. Your scores suggest unique strengths that can guide your personal development journey.`;
+    }
+    
+    return `Thank you for sharing that with me. While I'm currently running in demo mode without my full AI capabilities, I want you to know that your journey of self-discovery is valuable and important.${personalityResponse}\n\nI encourage you to reflect on your thoughts and feelings, and remember that professional counselors and therapists are always available if you need additional support.`;
+  }
+
   try {
     let personalityContext = "";
     
@@ -60,6 +70,22 @@ export async function generatePersonalityInsight(
   personalityScores: Record<string, number>,
   testType: string
 ): Promise<string> {
+  // Fallback insight if OpenAI is not available
+  if (!openai) {
+    const scoresText = Object.entries(personalityScores)
+      .map(([trait, score]) => `${trait}: ${score}/5`)
+      .join(', ');
+    
+    return JSON.stringify({
+      summary: `Your ${testType} assessment reveals a unique personality profile with scores: ${scoresText}`,
+      strengths: ["Your assessment shows interesting patterns", "Each trait contributes to your unique perspective", "Your scores reflect your individual character"],
+      growth_areas: ["Continued self-reflection", "Exploring new experiences"],
+      relationship_insights: "Your personality traits influence how you connect with others and navigate social situations.",
+      work_insights: "Your personality profile can guide you toward fulfilling career choices that align with your natural tendencies.",
+      practical_tips: ["Reflect on your assessment results", "Consider how these traits show up in daily life", "Use insights for personal growth"]
+    });
+  }
+
   try {
     const scoresText = Object.entries(personalityScores)
       .map(([trait, score]) => `${trait}: ${score}/5`)

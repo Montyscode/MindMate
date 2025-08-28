@@ -31,8 +31,43 @@ const updateTestSessionSchema = z.object({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for deployment monitoring
+  app.get('/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      hasDatabase: !!process.env.DATABASE_URL,
+      hasOpenAI: !!process.env.OPENAI_API_KEY
+    });
+  });
+
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'healthy', 
+      timestamp: new Date().toISOString() 
+    });
+  });
+
   // Auth middleware
   await setupAuth(app);
+
+  // Fallback auth routes for non-Replit environments
+  const isReplitEnvironment = !!(process.env.REPLIT_DOMAINS && process.env.REPL_ID);
+  
+  if (!isReplitEnvironment) {
+    app.get("/api/login", (req, res) => {
+      res.status(200).json({ message: "Demo mode - authentication not required" });
+    });
+
+    app.get("/api/logout", (req, res) => {
+      res.status(200).json({ message: "Demo mode - logout not required" });
+    });
+
+    app.get("/api/callback", (req, res) => {
+      res.redirect("/");
+    });
+  }
 
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
@@ -254,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Generate AI response
-      const aiResponse = await generateAIResponse(message, personalityResult?.scores);
+      const aiResponse = await generateAIResponse(message, personalityResult?.scores as Record<string, number> | null);
 
       // Store AI response
       const aiMessage = await storage.createAiMessage({
